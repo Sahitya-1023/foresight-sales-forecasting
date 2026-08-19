@@ -14,7 +14,7 @@ from pathlib import Path
 
 st.set_page_config(
     page_title="Foresight - Sales Forecasting",
-    page_icon=" ",
+    page_icon="",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -31,49 +31,40 @@ NOTEBOOK_DIR = BASE_DIR / "notebook"
 # ============================================================
 # LOAD ALL DATA
 # ============================================================
+
 @st.cache_data
 def load_data():
-
-    st.write("BASE_DIR:", BASE_DIR)
-    st.write("DATA_DIR:", DATA_DIR)
-    st.write("DATA EXISTS:", DATA_DIR.exists())
-    st.write(
-        "FILES:",
-        list(DATA_DIR.iterdir()) if DATA_DIR.exists()
-        else "DATA FOLDER NOT FOUND"
-    )
 
     # -------------------------
     # Calendar
     # -------------------------
-    st.write("1. Loading calendar...")
+
     calendar = pd.read_csv(
         DATA_DIR / "calendar.csv"
     )
-    st.write("2. Calendar loaded:", calendar.shape)
 
     # -------------------------
     # Sales
     # -------------------------
-    st.write("3. Loading sales...")
+
     sales = pd.read_csv(
         DATA_DIR / "sales_train_validation.csv"
     )
-    st.write("4. Sales loaded:", sales.shape)
 
     # -------------------------
     # Prices
     # -------------------------
-    st.write("5. Loading prices...")
-    prices = pd.read_csv(
-        DATA_DIR / "sell_prices.csv"
-    )
-    st.write("6. Prices loaded:", prices.shape)
+
+    prices_file = DATA_DIR / "sell_prices.csv"
+
+    if prices_file.exists():
+        prices = pd.read_csv(prices_file)
+    else:
+        prices = pd.DataFrame()
 
     # -------------------------
     # Forecasting results
     # -------------------------
-    st.write("7. Loading forecasting results...")
 
     final_forecast = pd.read_csv(
         NOTEBOOK_DIR / "final_sales_forecast.csv"
@@ -86,8 +77,6 @@ def load_data():
     model_results = pd.read_csv(
         NOTEBOOK_DIR / "model_comparison_results.csv"
     )
-
-    st.write("8. Forecasting results loaded")
 
     return (
         calendar,
@@ -124,65 +113,117 @@ except Exception as e:
     st.exception(e)
 
 
-
 # ============================================================
 # CREATE DAILY SALES DATA
 # ============================================================
+
+daily_sales = pd.DataFrame()
 
 if data_loaded:
 
     try:
 
-        # Get all daily sales columns from the sales dataset
+        # ----------------------------------------------------
+        # Get all daily sales columns
+        # ----------------------------------------------------
+
         day_columns = [
-            col for col in sales.columns
+            col
+            for col in sales.columns
             if str(col).startswith("d_")
         ]
 
+        # ----------------------------------------------------
+        # Check that daily columns exist
+        # ----------------------------------------------------
+
+        if not day_columns:
+
+            raise ValueError(
+                "No daily sales columns starting with 'd_' "
+                "were found in sales_train_validation.csv."
+            )
+
+        # ----------------------------------------------------
         # Calculate total sales for each day
+        # ----------------------------------------------------
+
         daily_totals = sales[day_columns].sum(axis=0)
 
+        # ----------------------------------------------------
         # Create daily sales dataframe
+        # ----------------------------------------------------
+
         daily_sales = pd.DataFrame({
             "d": daily_totals.index,
             "daily_sales": daily_totals.values
         })
 
         # ----------------------------------------------------
-        # CONNECT SALES DAYS WITH CALENDAR BY POSITION
+        # Connect sales days with calendar by position
         # ----------------------------------------------------
 
-        # The calendar does not contain a 'd' column.
-        # The rows correspond to d_1, d_2, d_3, ...
         calendar_part = calendar.iloc[
             :len(daily_sales)
         ].copy()
 
-        # Add calendar information by position
-        daily_sales["date"] = pd.to_datetime(
-            calendar_part["date"].values
-        )
+        # ----------------------------------------------------
+        # Add date
+        # ----------------------------------------------------
 
+        if "date" in calendar_part.columns:
+
+            daily_sales["date"] = pd.to_datetime(
+                calendar_part["date"].values
+            )
+
+        else:
+
+            raise ValueError(
+                "The calendar.csv file does not contain a 'date' column."
+            )
+
+        # ----------------------------------------------------
         # Add other calendar columns if available
+        # ----------------------------------------------------
+
         if "year" in calendar_part.columns:
-            daily_sales["year"] = calendar_part["year"].values
+
+            daily_sales["year"] = (
+                calendar_part["year"].values
+            )
 
         if "month" in calendar_part.columns:
-            daily_sales["month"] = calendar_part["month"].values
+
+            daily_sales["month"] = (
+                calendar_part["month"].values
+            )
 
         if "wday" in calendar_part.columns:
-            daily_sales["wday"] = calendar_part["wday"].values
+
+            daily_sales["wday"] = (
+                calendar_part["wday"].values
+            )
 
         if "weekday" in calendar_part.columns:
-            daily_sales["weekday"] = calendar_part["weekday"].values
 
+            daily_sales["weekday"] = (
+                calendar_part["weekday"].values
+            )
+
+        # ----------------------------------------------------
         # Make sure sales are numeric
+        # ----------------------------------------------------
+
         daily_sales["daily_sales"] = pd.to_numeric(
             daily_sales["daily_sales"],
             errors="coerce"
         )
 
+        # ----------------------------------------------------
         # Remove invalid values
+        # ----------------------------------------------------
+
         daily_sales = daily_sales.dropna(
             subset=["daily_sales"]
         )
@@ -193,6 +234,7 @@ if data_loaded:
         st.exception(e)
 
         daily_sales = pd.DataFrame()
+
 
 # ============================================================
 # SIDEBAR
@@ -206,11 +248,11 @@ st.sidebar.markdown(
 
     **Project:**  
     Retail Sales Forecasting
-
     """
 )
 
 st.sidebar.markdown("---")
+
 
 # ============================================================
 # DASHBOARD PAGE SELECTION
@@ -234,7 +276,7 @@ if data_loaded:
     ]
 
     selected_page = st.sidebar.radio(
-        "📑 Dashboard Pages",
+        " Dashboard Pages",
         pages
     )
 
@@ -273,7 +315,7 @@ if selected_page == "1️⃣ Executive Overview":
     if data_loaded:
 
         st.success(
-            "✅ All project datasets loaded successfully!"
+            "All project datasets loaded successfully!"
         )
 
         # ====================================================
@@ -285,30 +327,46 @@ if selected_page == "1️⃣ Executive Overview":
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
+
             st.metric(
                 "Sales Records",
                 f"{len(sales):,}"
             )
 
         with col2:
+
             if "store_id" in sales.columns:
+
                 st.metric(
                     "Stores",
                     sales["store_id"].nunique()
                 )
+
             else:
-                st.metric("Stores", "N/A")
+
+                st.metric(
+                    "Stores",
+                    "N/A"
+                )
 
         with col3:
+
             if "cat_id" in sales.columns:
+
                 st.metric(
                     "Categories",
                     sales["cat_id"].nunique()
                 )
+
             else:
-                st.metric("Categories", "N/A")
+
+                st.metric(
+                    "Categories",
+                    "N/A"
+                )
 
         with col4:
+
             st.metric(
                 "Forecast Days",
                 len(future_forecast)
@@ -323,6 +381,7 @@ if selected_page == "1️⃣ Executive Overview":
         st.subheader(" Loaded Project Data")
 
         dataset_info = pd.DataFrame({
+
             "Dataset": [
                 "Calendar",
                 "Sales Training",
@@ -351,9 +410,12 @@ if selected_page == "1️⃣ Executive Overview":
             ]
         })
 
+        # IMPORTANT:
+        # No width parameter here.
+        # This prevents the TypeError from older Streamlit versions.
+
         st.dataframe(
             dataset_info,
-            use_container_width=True,
             hide_index=True
         )
 
@@ -403,18 +465,18 @@ if selected_page == "1️⃣ Executive Overview":
 
         if not daily_sales.empty:
 
-            st.subheader("📈 Historical Daily Sales")
+            st.subheader(" Historical Daily Sales")
 
             chart_data = daily_sales[
                 ["date", "daily_sales"]
             ].copy()
 
-            chart_data = chart_data.set_index("date")
-
-            st.line_chart(
-                chart_data,
-                use_container_width=True
+            chart_data = chart_data.set_index(
+                "date"
             )
+
+            # No width parameter
+            st.line_chart(chart_data)
 
 
 # ============================================================
@@ -430,18 +492,21 @@ elif selected_page == "2️⃣ Sales Overview":
         col1, col2, col3 = st.columns(3)
 
         with col1:
+
             st.metric(
                 "Total Sales",
                 f"{daily_sales['daily_sales'].sum():,.0f}"
             )
 
         with col2:
+
             st.metric(
                 "Average Daily Sales",
                 f"{daily_sales['daily_sales'].mean():,.2f}"
             )
 
         with col3:
+
             st.metric(
                 "Maximum Daily Sales",
                 f"{daily_sales['daily_sales'].max():,.0f}"
@@ -460,8 +525,7 @@ elif selected_page == "2️⃣ Sales Overview":
         st.subheader("Sales Statistics")
 
         st.dataframe(
-            daily_sales["daily_sales"].describe(),
-            use_container_width=True
+            daily_sales["daily_sales"].describe()
         )
 
 
@@ -490,8 +554,12 @@ elif selected_page == "3️⃣ Sales Trend Analysis":
         )
 
         chart = trend[
-            ["date", "daily_sales",
-             "rolling_7", "rolling_30"]
+            [
+                "date",
+                "daily_sales",
+                "rolling_7",
+                "rolling_30"
+            ]
         ].set_index("date")
 
         st.line_chart(chart)
@@ -508,8 +576,9 @@ elif selected_page == "4️⃣ Store Performance":
     if "store_id" in sales.columns:
 
         store_columns = [
-            col for col in sales.columns
-            if col.startswith("d_")
+            col
+            for col in sales.columns
+            if str(col).startswith("d_")
         ]
 
         store_sales = sales.copy()
@@ -529,7 +598,6 @@ elif selected_page == "4️⃣ Store Performance":
 
         st.dataframe(
             result,
-            use_container_width=True,
             hide_index=True
         )
 
@@ -549,8 +617,9 @@ elif selected_page == "5️⃣ Category Performance":
     if "cat_id" in sales.columns:
 
         day_columns = [
-            col for col in sales.columns
-            if col.startswith("d_")
+            col
+            for col in sales.columns
+            if str(col).startswith("d_")
         ]
 
         category_sales = sales.copy()
@@ -570,7 +639,6 @@ elif selected_page == "5️⃣ Category Performance":
 
         st.dataframe(
             result,
-            use_container_width=True,
             hide_index=True
         )
 
@@ -594,32 +662,48 @@ elif selected_page == "6️⃣ Time & Seasonality":
         if "date" in temp.columns:
 
             temp["day_of_week"] = (
-                temp["date"].dt.day_name()
+                temp["date"]
+                .dt
+                .day_name()
             )
 
             temp["month"] = (
-                temp["date"].dt.month
+                temp["date"]
+                .dt
+                .month
             )
 
-            st.subheader("Sales by Day of Week")
+            st.subheader(
+                "Sales by Day of Week"
+            )
 
             weekday_sales = (
                 temp
-                .groupby("day_of_week")["daily_sales"]
+                .groupby("day_of_week")[
+                    "daily_sales"
+                ]
                 .mean()
             )
 
-            st.bar_chart(weekday_sales)
+            st.bar_chart(
+                weekday_sales
+            )
 
-            st.subheader("Sales by Month")
+            st.subheader(
+                "Sales by Month"
+            )
 
             monthly_sales = (
                 temp
-                .groupby("month")["daily_sales"]
+                .groupby("month")[
+                    "daily_sales"
+                ]
                 .mean()
             )
 
-            st.bar_chart(monthly_sales)
+            st.bar_chart(
+                monthly_sales
+            )
 
 
 # ============================================================
@@ -635,11 +719,13 @@ elif selected_page == "7️⃣ Sales Pattern Analysis":
         temp = daily_sales.copy()
 
         temp["lag_1"] = (
-            temp["daily_sales"].shift(1)
+            temp["daily_sales"]
+            .shift(1)
         )
 
         temp["lag_7"] = (
-            temp["daily_sales"].shift(7)
+            temp["daily_sales"]
+            .shift(7)
         )
 
         temp["rolling_mean_7"] = (
@@ -649,8 +735,7 @@ elif selected_page == "7️⃣ Sales Pattern Analysis":
         )
 
         st.dataframe(
-            temp.tail(30),
-            use_container_width=True
+            temp.tail(30)
         )
 
 
@@ -664,15 +749,19 @@ elif selected_page == "8️⃣ Model Comparison":
 
     st.dataframe(
         model_results,
-        use_container_width=True,
         hide_index=True
     )
 
     # Automatically identify numeric metric columns
 
-    numeric_columns = model_results.select_dtypes(
-        include=np.number
-    ).columns.tolist()
+    numeric_columns = (
+        model_results
+        .select_dtypes(
+            include=np.number
+        )
+        .columns
+        .tolist()
+    )
 
     if numeric_columns:
 
@@ -681,11 +770,19 @@ elif selected_page == "8️⃣ Model Comparison":
             numeric_columns
         )
 
-        st.bar_chart(
-            model_results.set_index(
-                model_results.columns[0]
-            )[metric]
-        )
+        try:
+
+            st.bar_chart(
+                model_results.set_index(
+                    model_results.columns[0]
+                )[metric]
+            )
+
+        except Exception:
+
+            st.info(
+                "Unable to create model comparison chart."
+            )
 
 
 # ============================================================
@@ -697,8 +794,9 @@ elif selected_page == "9️⃣ Feature Importance":
     st.title(" Feature Importance")
 
     st.info(
-        "Feature importance is displayed when feature-importance "
-        "results are available from the forecasting notebook."
+        "Feature importance is displayed when "
+        "feature-importance results are available "
+        "from the forecasting notebook."
     )
 
     st.write(
@@ -720,7 +818,6 @@ elif selected_page == "🔟 Forecast Accuracy":
 
     st.dataframe(
         model_results,
-        use_container_width=True,
         hide_index=True
     )
 
@@ -747,15 +844,19 @@ elif selected_page == "1️⃣1️⃣ 30-Day Future Forecast":
 
     st.dataframe(
         future_forecast,
-        use_container_width=True,
         hide_index=True
     )
 
     # Automatically detect numeric forecast column
 
-    numeric_columns = future_forecast.select_dtypes(
-        include=np.number
-    ).columns.tolist()
+    numeric_columns = (
+        future_forecast
+        .select_dtypes(
+            include=np.number
+        )
+        .columns
+        .tolist()
+    )
 
     if numeric_columns:
 
@@ -765,7 +866,9 @@ elif selected_page == "1️⃣1️⃣ 30-Day Future Forecast":
         )
 
         st.line_chart(
-            future_forecast[forecast_column]
+            future_forecast[
+                forecast_column
+            ]
         )
 
 
@@ -781,24 +884,23 @@ elif selected_page == "1️⃣2️⃣ Final Forecast & Insights":
 
     st.dataframe(
         final_forecast,
-        use_container_width=True,
         hide_index=True
     )
 
     st.markdown("---")
 
-    st.subheader(" Key Insights")
+    st.subheader("💡 Key Insights")
 
     st.markdown(
         """
-        - Historical sales patterns are analyzed using machine
-          learning features.
+        - Historical sales patterns are analyzed using
+          machine-learning features.
         - Multiple forecasting models are compared.
         - MAE and RMSE are used for model evaluation.
         - Future sales are generated using the selected
           forecasting model.
-        - The dashboard provides both historical analysis and
-          future sales predictions.
+        - The dashboard provides both historical analysis
+          and future sales predictions.
         """
     )
 
