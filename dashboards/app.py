@@ -31,32 +31,49 @@ NOTEBOOK_DIR = BASE_DIR / "notebook"
 # ============================================================
 # LOAD ALL DATA
 # ============================================================
-
 @st.cache_data
 def load_data():
 
-    # -------------------------
-    # Raw datasets
-    # -------------------------
     st.write("BASE_DIR:", BASE_DIR)
     st.write("DATA_DIR:", DATA_DIR)
     st.write("DATA EXISTS:", DATA_DIR.exists())
-    st.write("FILES:", list(DATA_DIR.iterdir()) if DATA_DIR.exists() else "DATA FOLDER NOT FOUND")
+    st.write(
+        "FILES:",
+        list(DATA_DIR.iterdir()) if DATA_DIR.exists()
+        else "DATA FOLDER NOT FOUND"
+    )
+
+    # -------------------------
+    # Calendar
+    # -------------------------
+    st.write("1. Loading calendar...")
     calendar = pd.read_csv(
         DATA_DIR / "calendar.csv"
     )
+    st.write("2. Calendar loaded:", calendar.shape)
 
+    # -------------------------
+    # Sales
+    # -------------------------
+    st.write("3. Loading sales...")
     sales = pd.read_csv(
         DATA_DIR / "sales_train_validation.csv"
     )
+    st.write("4. Sales loaded:", sales.shape)
 
+    # -------------------------
+    # Prices
+    # -------------------------
+    st.write("5. Loading prices...")
     prices = pd.read_csv(
         DATA_DIR / "sell_prices.csv"
     )
+    st.write("6. Prices loaded:", prices.shape)
 
     # -------------------------
     # Forecasting results
     # -------------------------
+    st.write("7. Loading forecasting results...")
 
     final_forecast = pd.read_csv(
         NOTEBOOK_DIR / "final_sales_forecast.csv"
@@ -69,6 +86,8 @@ def load_data():
     model_results = pd.read_csv(
         NOTEBOOK_DIR / "model_comparison_results.csv"
     )
+
+    st.write("8. Forecasting results loaded")
 
     return (
         calendar,
