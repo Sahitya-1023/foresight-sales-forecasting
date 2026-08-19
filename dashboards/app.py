@@ -38,7 +38,10 @@ def load_data():
     # -------------------------
     # Raw datasets
     # -------------------------
-
+    st.write("BASE_DIR:", BASE_DIR)
+    st.write("DATA_DIR:", DATA_DIR)
+    st.write("DATA EXISTS:", DATA_DIR.exists())
+    st.write("FILES:", list(DATA_DIR.iterdir()) if DATA_DIR.exists() else "DATA FOLDER NOT FOUND")
     calendar = pd.read_csv(
         DATA_DIR / "calendar.csv"
     )
